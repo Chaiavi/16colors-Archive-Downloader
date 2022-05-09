@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,17 +25,16 @@ public class Download16c {
     private static final Map<Integer, Integer> yearToFailedDownloads = new HashMap<>();
 
     public static void main(String[] args) throws IOException {
+        boolean downloadSpecificYears = false;
+        downloadSpecificYears = args.length > 0;
+
         Instant startTime = Instant.now();
         Document pageContent = Jsoup.connect("https://github.com/sixteencolors/sixteencolors-archive").get();
-        log.info ("PageTitle: {}", pageContent.title());
+        log.info("PageTitle: {}", pageContent.title());
         Elements yearLinks = pageContent.body().getElementsByClass("js-navigation-open Link--primary");
-        try {
-            Thread.sleep(50 * 1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+
         // Browsing by year
-        for (Element currentYear: yearLinks) {
+        for (Element currentYear : yearLinks) {
             String year = currentYear.attr("title");
             try {
                 Integer.parseInt(year);
@@ -43,13 +43,18 @@ public class Download16c {
                 continue;
             }
 
+            if (downloadSpecificYears & !Arrays.asList(args).contains(year)) { // In the case where the user asked for a specific year of ANSI packs
+                log.warn("Skipping year: {}, as per the commandline arguments", year);
+                continue;
+            }
+
             String yearUrl = "https://github.com" + currentYear.attr("href");
             createFolder(year);
-            log.info ("\n\n################ {} ################", year);
+            log.info("\n\n################ {} ################", year);
 
             pageContent = Jsoup.connect(yearUrl).get();
             Elements packsLinks = pageContent.body().getElementsByClass("js-navigation-open Link--primary");
-            for (Element currentPack: packsLinks) {
+            for (Element currentPack : packsLinks) {
                 String packUrl = "https://raw.githubusercontent.com" + currentPack.attr("href").replace("blob/", "");
                 String fileName = packUrl.split("/")[packUrl.split("/").length - 1];
                 String targetFilename = "./" + year + "/" + fileName;
@@ -68,7 +73,7 @@ public class Download16c {
 
     private static void createFolder(String folderName) {
         File theDir = new File("./" + folderName);
-        if (!theDir.exists()){
+        if (!theDir.exists()) {
             theDir.mkdirs();
         }
     }
@@ -96,7 +101,7 @@ public class Download16c {
         log.info("Downloaded: {}", downloaded);
         log.info("Skipped: {}", skipped);
 
-        for (Map.Entry<Integer, Integer> entry: yearToFailedDownloads.entrySet()) {
+        for (Map.Entry<Integer, Integer> entry : yearToFailedDownloads.entrySet()) {
             log.info("Year: {}, FailedDownloads: {}", entry.getKey(), entry.getValue());
         }
 
